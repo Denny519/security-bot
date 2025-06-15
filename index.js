@@ -128,7 +128,7 @@ client.once(Events.ClientReady, async () => {
     logger.logSystem('bot_ready', {
         guilds: client.guilds.cache.size,
         users: client.users.cache.size,
-        version: '2.1.0'
+        version: '2.2.0'
     });
 
     // Log startup metrics
@@ -429,10 +429,11 @@ client.on(Events.GuildDelete, (guild) => {
     });
 });
 
-// Member join event with security analysis and raid detection
+// Optimized member join event with comprehensive security analysis
 client.on(Events.GuildMemberAdd, async (member) => {
     try {
         const guild = member.guild;
+        const guildConfig = client.configManager.getGuildConfig(guild.id);
 
         // Perform security analysis on new member
         const userAnalysis = client.security.analyzeUser(member.user, guild);
@@ -450,56 +451,54 @@ client.on(Events.GuildMemberAdd, async (member) => {
             });
         }
 
-        // Get guild-specific configuration
-        const guildConfig = client.configManager.getGuildConfig(guild.id);
+        // Integrated raid protection monitoring
+        if (client.raidProtection && guildConfig.raidProtection?.enabled) {
+            const raidResult = await client.raidProtection.monitorJoin(member, guildConfig);
 
-        // Perform raid detection
-        if (guildConfig.raidProtection.enabled) {
-            const raidAnalysis = client.security.detectRaid(guild, member);
+            logger.info('Member join monitored', {
+                guildId: guild.id,
+                userId: member.user.id,
+                username: member.user.tag,
+                action: raidResult.action,
+                suspicious: raidResult.suspicious,
+                raidDetected: raidResult.raidDetected,
+                riskScore: raidResult.riskScore
+            });
 
-            if (raidAnalysis.isRaid) {
+            // Handle raid detection results
+            if (raidResult.raidDetected) {
                 logger.logSecurity('raid_detected', {
                     guildId: guild.id,
                     guildName: guild.name,
-                    joinCount: raidAnalysis.joinCount,
-                    suspiciousCount: raidAnalysis.suspiciousCount,
-                    confidence: raidAnalysis.confidence,
-                    recommendations: raidAnalysis.recommendations,
+                    confidence: raidResult.confidence,
                     severity: 'high'
                 });
-
-                // Auto-kick very suspicious accounts during raids
-                if (userAnalysis.riskScore >= 70 && guildConfig.raidProtection.actions?.kickNewMembers) {
-                    try {
-                        await member.kick('Auto-kick during raid: High-risk account');
-                        logger.logModeration('AUTO_KICK', member.user, 'High-risk account during raid', guild);
-                    } catch (kickError) {
-                        logger.error('Failed to auto-kick suspicious user:', { error: kickError.message });
-                    }
-                }
             }
         }
 
-        // Account age verification
-        if (guildConfig.raidProtection.accountAge.enabled) {
+        // Account age verification with optimized logic
+        if (guildConfig.raidProtection?.accountAge?.enabled) {
             const accountAge = Date.now() - member.user.createdTimestamp;
+            const minimumAge = guildConfig.raidProtection.accountAge.minimumAge;
 
-            if (accountAge < guildConfig.raidProtection.accountAge.minimumAge) {
+            if (accountAge < minimumAge) {
                 const action = guildConfig.raidProtection.accountAge.action;
                 const ageHours = Math.round(accountAge / (1000 * 60 * 60));
+                const minAgeHours = Math.round(minimumAge / (1000 * 60 * 60));
 
                 logger.logSecurity('account_age_violation', {
                     userId: member.id,
                     userTag: member.user.tag,
                     accountAgeHours: ageHours,
-                    minimumAgeHours: Math.round(guildConfig.raidProtection.accountAge.minimumAge / (1000 * 60 * 60)),
+                    minimumAgeHours: minAgeHours,
                     action,
                     guildId: guild.id,
                     severity: 'medium'
                 });
 
+                // Execute age-based action
                 if (action === 'kick' && member.kickable) {
-                    await member.kick(`Account too new (${ageHours}h old, minimum: ${Math.round(guildConfig.raidProtection.accountAge.minimumAge / (1000 * 60 * 60))}h)`);
+                    await member.kick(`Account too new (${ageHours}h old, minimum: ${minAgeHours}h)`);
                     logger.logModeration('AUTO_KICK', member.user, `Account age violation (${ageHours}h old)`, guild);
                 } else if (action === 'ban' && member.bannable) {
                     await member.ban({ reason: `Account too new (${ageHours}h old)` });
@@ -507,6 +506,15 @@ client.on(Events.GuildMemberAdd, async (member) => {
                 }
             }
         }
+
+        // Log successful join
+        logger.logSystem('member_join', {
+            guildId: guild.id,
+            guildName: guild.name,
+            userId: member.user.id,
+            username: member.user.tag,
+            accountAge: Date.now() - member.user.createdAt.getTime()
+        });
 
     } catch (error) {
         logger.error('Error in member join handler:', {
@@ -518,17 +526,25 @@ client.on(Events.GuildMemberAdd, async (member) => {
     }
 });
 
-// Member leave event logging
+// Optimized member leave event logging
 client.on(Events.GuildMemberRemove, (member) => {
-    logger.debug('Member left server', {
-        userId: member.id,
-        userTag: member.user.tag,
-        guildId: member.guild.id,
-        guildName: member.guild.name
-    });
+    try {
+        logger.logSystem('member_leave', {
+            guildId: member.guild.id,
+            guildName: member.guild.name,
+            userId: member.user.id,
+            username: member.user.tag
+        });
+    } catch (error) {
+        logger.error('Error handling member leave:', {
+            error: error.message,
+            guildId: member.guild?.id,
+            userId: member.user?.id
+        });
+    }
 });
 
-// Enhanced cache management with memory optimization
+// Optimized cache management with efficient cleanup
 function performCacheCleanup() {
     const now = Date.now();
     const oneHour = 60 * 60 * 1000;
@@ -536,32 +552,45 @@ function performCacheCleanup() {
 
     let totalCleaned = 0;
 
-    // Clean old violations (keep for 1 hour)
-    const violationsBefore = violationCache.size;
-    violationCache.sweep(violation => {
-        const shouldRemove = now - violation.lastViolation > oneHour;
-        if (shouldRemove) totalCleaned++;
-        return !shouldRemove;
+    // Optimized violation cache cleanup
+    const violationsToDelete = [];
+    for (const [userId, violation] of violationCache.entries()) {
+        if (now - violation.lastViolation > oneHour) {
+            violationsToDelete.push(userId);
+        }
+    }
+    violationsToDelete.forEach(userId => {
+        violationCache.delete(userId);
+        totalCleaned++;
     });
-    const violationsRemoved = violationsBefore - violationCache.size;
+    const violationsRemoved = violationsToDelete.length;
 
-    // Clean old user cache (keep for 1 hour)
-    const usersBefore = userCache.size;
-    userCache.sweep(user => {
-        const shouldRemove = now - (user.lastMessage || user.firstMessage || 0) > oneHour;
-        if (shouldRemove) totalCleaned++;
-        return !shouldRemove;
+    // Optimized user cache cleanup
+    const usersToDelete = [];
+    for (const [userId, user] of userCache.entries()) {
+        const lastActivity = user.lastMessage || user.firstMessage || 0;
+        if (now - lastActivity > oneHour) {
+            usersToDelete.push(userId);
+        }
+    }
+    usersToDelete.forEach(userId => {
+        userCache.delete(userId);
+        totalCleaned++;
     });
-    const usersRemoved = usersBefore - userCache.size;
+    const usersRemoved = usersToDelete.length;
 
-    // Clean old messages (keep for 5 minutes for spam detection)
-    const messagesBefore = lastMessages.size;
-    lastMessages.sweep(messageData => {
-        const shouldRemove = now - messageData.timestamp > fiveMinutes;
-        if (shouldRemove) totalCleaned++;
-        return !shouldRemove;
+    // Optimized message cache cleanup
+    const messagesToDelete = [];
+    for (const [userId, messageData] of lastMessages.entries()) {
+        if (now - messageData.timestamp > fiveMinutes) {
+            messagesToDelete.push(userId);
+        }
+    }
+    messagesToDelete.forEach(userId => {
+        lastMessages.delete(userId);
+        totalCleaned++;
     });
-    const messagesRemoved = messagesBefore - lastMessages.size;
+    const messagesRemoved = messagesToDelete.length;
 
     // Clean command handler caches
     if (client.commandHandler) {
@@ -629,61 +658,7 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
-// Member join event - Raid Protection
-client.on(Events.GuildMemberAdd, async (member) => {
-    try {
-        const guildConfig = client.configManager.getGuildConfig(member.guild.id);
 
-        // Monitor join with raid protection
-        if (client.raidProtection && guildConfig.raidProtection?.enabled) {
-            const result = await client.raidProtection.monitorJoin(member, guildConfig);
-
-            logger.info('Member join monitored', {
-                guildId: member.guild.id,
-                userId: member.user.id,
-                username: member.user.tag,
-                action: result.action,
-                suspicious: result.suspicious,
-                raidDetected: result.raidDetected,
-                riskScore: result.riskScore
-            });
-        }
-
-        // Log join event
-        logger.logSystem('member_join', {
-            guildId: member.guild.id,
-            guildName: member.guild.name,
-            userId: member.user.id,
-            username: member.user.tag,
-            accountAge: Date.now() - member.user.createdAt.getTime()
-        });
-
-    } catch (error) {
-        logger.error('Error handling member join:', {
-            error: error.message,
-            guildId: member.guild.id,
-            userId: member.user.id
-        });
-    }
-});
-
-// Member leave event
-client.on(Events.GuildMemberRemove, async (member) => {
-    try {
-        logger.logSystem('member_leave', {
-            guildId: member.guild.id,
-            guildName: member.guild.name,
-            userId: member.user.id,
-            username: member.user.tag
-        });
-    } catch (error) {
-        logger.error('Error handling member leave:', {
-            error: error.message,
-            guildId: member.guild.id,
-            userId: member.user.id
-        });
-    }
-});
 
 process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection:', {

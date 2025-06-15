@@ -2,7 +2,7 @@ module.exports = {
     // Bot configuration
     bot: {
         name: 'Security Bot',
-        version: '2.0.0',
+        version: '2.2.0',
         description: 'Advanced Discord Security and Moderation Bot',
         author: 'Security Bot Team',
         prefix: '!', // Fallback prefix for text commands
@@ -146,24 +146,7 @@ module.exports = {
         }
     },
 
-    // Profanity filter configuration
-    profanity: {
-        enabled: true,
-        severity: 'medium', // low, medium, high, strict
-        customWords: [], // Add custom words to filter
-        whitelist: [], // Words to exclude from filtering
-        
-        // Language detection
-        languages: ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru'],
-        
-        // Actions
-        actions: {
-            delete: true,
-            warn: true,
-            timeout: false,
-            kick: false
-        }
-    },
+
 
     // Raid protection configuration
     raidProtection: {
@@ -247,7 +230,7 @@ module.exports = {
         
         // Database settings (if using database)
         database: {
-            enabled: false,
+            enabled: true,
             type: 'sqlite', // sqlite, mysql, postgresql
             path: './data/security-bot.db',
             host: null,

@@ -11,11 +11,13 @@ class ContentFilter {
         this.config = {
             enabled: options.enabled !== false,
             strictMode: options.strictMode || false,
-            customWords: options.customWords || [],
-            whitelist: options.whitelist || [],
-            allowedFileTypes: options.allowedFileTypes || [
-                'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 
-                'pdf', 'txt', 'doc', 'docx', 'zip', 'rar'
+            customWords: Array.isArray(options.customWords) ? options.customWords : [],
+            whitelist: Array.isArray(options.whitelist) ? options.whitelist : [],
+            allowedFileTypes: Array.isArray(options.allowedFileTypes) ? options.allowedFileTypes : [
+                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg',
+                'mp4', 'mov', 'avi', 'mkv', 'webm', 'mp3', 'wav', 'ogg',
+                'pdf', 'txt', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+                'zip', 'rar', '7z', 'tar', 'gz'
             ],
             maxFileSize: options.maxFileSize || 50 * 1024 * 1024, // 50MB
             ...options
@@ -82,31 +84,100 @@ class ContentFilter {
      */
     compilePatterns() {
         const patterns = {};
-        
+
         // Compile profanity patterns for each language
         for (const [language, words] of Object.entries(this.profanityLists)) {
-            patterns[language] = words.map(word => {
-                // Create pattern that handles common evasion techniques
-                const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const pattern = escapedWord
-                    .replace(/[aeiou]/gi, '[aeiou@3!0]') // Vowel substitution
-                    .replace(/s/gi, '[s$5z]')           // S substitution
-                    .replace(/l/gi, '[l1!|]')           // L substitution
-                    .replace(/o/gi, '[o0@]')            // O substitution
-                    .replace(/i/gi, '[i1!|]');          // I substitution
-                
-                return new RegExp(`\\b${pattern}\\b`, 'gi');
-            });
+            patterns[language] = [];
+
+            for (const word of words) {
+                try {
+                    // Skip empty or invalid words
+                    if (!word || typeof word !== 'string' || word.trim().length === 0) {
+                        continue;
+                    }
+
+                    const cleanWord = word.trim();
+
+                    // Handle multi-word phrases
+                    if (cleanWord.includes(' ')) {
+                        const escapedPhrase = cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const flexiblePhrase = escapedPhrase.replace(/\s+/g, '\\s*');
+                        const phrasePattern = new RegExp(`\\b${flexiblePhrase}\\b`, 'gi');
+
+                        patterns[language].push({
+                            exact: phrasePattern,
+                            evasion: phrasePattern,
+                            word: cleanWord
+                        });
+                        continue;
+                    }
+
+                    // Create pattern that handles common evasion techniques for single words
+                    const escapedWord = cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                    // Apply character substitution patterns more carefully
+                    let evasionPattern = escapedWord;
+
+                    // Only apply substitutions if the character exists in the word
+                    if (/[aeiou]/i.test(cleanWord)) {
+                        evasionPattern = evasionPattern.replace(/[aeiou]/gi, '[aeiou@3!0]');
+                    }
+                    if (/s/i.test(cleanWord)) {
+                        evasionPattern = evasionPattern.replace(/s/gi, '[s$5z]');
+                    }
+                    if (/l/i.test(cleanWord)) {
+                        evasionPattern = evasionPattern.replace(/l/gi, '[l1!|]');
+                    }
+                    if (/o/i.test(cleanWord)) {
+                        evasionPattern = evasionPattern.replace(/o/gi, '[o0@]');
+                    }
+                    if (/i/i.test(cleanWord)) {
+                        evasionPattern = evasionPattern.replace(/i/gi, '[i1!|]');
+                    }
+
+                    // Create both exact match and evasion-resistant patterns
+                    const exactRegex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
+                    const evasionRegex = new RegExp(`\\b${evasionPattern}\\b`, 'gi');
+
+                    patterns[language].push({
+                        exact: exactRegex,
+                        evasion: evasionRegex,
+                        word: cleanWord
+                    });
+
+                } catch (error) {
+                    logger.warn('Failed to compile pattern for word', { word, language, error: error.message });
+                }
+            }
         }
-        
+
         // Compile custom word patterns
-        if (this.config.customWords.length > 0) {
-            patterns.custom = this.config.customWords.map(word => {
-                const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                return new RegExp(`\\b${escapedWord}\\b`, 'gi');
-            });
+        if (this.config.customWords && this.config.customWords.length > 0) {
+            patterns.custom = [];
+
+            for (const word of this.config.customWords) {
+                try {
+                    // Skip empty or invalid words
+                    if (!word || typeof word !== 'string' || word.trim().length === 0) {
+                        continue;
+                    }
+
+                    const cleanWord = word.trim();
+                    const escapedWord = cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const exactPattern = new RegExp(`\\b${escapedWord}\\b`, 'gi');
+
+                    patterns.custom.push({
+                        exact: exactPattern,
+                        evasion: exactPattern,
+                        word: cleanWord
+                    });
+
+                } catch (error) {
+                    logger.warn('Failed to compile custom word pattern', { word, error: error.message });
+                }
+            }
         }
-        
+
         return patterns;
     }
     
@@ -212,61 +283,80 @@ class ContentFilter {
         // Check each language's profanity list
         for (const [language, patterns] of Object.entries(this.compiledPatterns)) {
             if (language === 'custom') continue; // Handle custom words separately
-            
+
             for (let i = 0; i < patterns.length; i++) {
-                const pattern = patterns[i];
-                const matches = normalizedContent.match(pattern);
-                
+                const patternObj = patterns[i];
+
+                // Validate pattern object
+                if (!patternObj || !patternObj.exact || !patternObj.word) {
+                    logger.warn('Invalid pattern object found', { language, index: i, patternObj });
+                    continue;
+                }
+
+                // Try exact match first
+                let matches = normalizedContent.match(patternObj.exact);
+                let matchType = 'exact';
+
+                // If no exact match, try evasion pattern
+                if (!matches && patternObj.evasion) {
+                    matches = normalizedContent.match(patternObj.evasion);
+                    matchType = 'evasion';
+                }
+
                 if (matches) {
                     analysis.filtered = true;
                     analysis.language = language;
-                    
-                    const originalWord = this.profanityLists[language][i];
+
+                    const originalWord = patternObj.word;
                     const severity = this.getWordSeverity(originalWord);
-                    
+
                     analysis.severity = Math.max(analysis.severity, severity);
-                    analysis.confidence += 20 * matches.length;
-                    
+                    analysis.confidence += matchType === 'exact' ? 25 : 20;
+
                     analysis.detections.push({
                         type: 'profanity',
                         language,
                         word: originalWord,
                         matches: matches.length,
+                        matchType,
                         severity
                     });
-                    
+
                     // In strict mode, stop at first detection
                     if (this.config.strictMode) {
                         break;
                     }
                 }
             }
-            
+
             if (analysis.filtered && this.config.strictMode) {
                 break;
             }
         }
         
         // Check custom words
-        if (this.compiledPatterns.custom) {
+        if (this.compiledPatterns.custom && this.compiledPatterns.custom.length > 0) {
             for (let i = 0; i < this.compiledPatterns.custom.length; i++) {
-                const pattern = this.compiledPatterns.custom[i];
-                const matches = normalizedContent.match(pattern);
-                
+                const patternObj = this.compiledPatterns.custom[i];
+
+                // Try exact match for custom words
+                const matches = normalizedContent.match(patternObj.exact);
+
                 if (matches) {
                     analysis.filtered = true;
                     analysis.language = 'custom';
-                    
-                    const customWord = this.config.customWords[i];
+
+                    const customWord = patternObj.word;
                     const severity = this.severityLevels.custom;
-                    
+
                     analysis.severity = Math.max(analysis.severity, severity);
                     analysis.confidence += 25 * matches.length;
-                    
+
                     analysis.detections.push({
                         type: 'custom_word',
                         word: customWord,
                         matches: matches.length,
+                        matchType: 'exact',
                         severity
                     });
                 }
@@ -407,6 +497,11 @@ class ContentFilter {
      * Get severity level for a word
      */
     getWordSeverity(word) {
+        if (!word || typeof word !== 'string') {
+            logger.warn('getWordSeverity called with invalid word:', { word });
+            return this.severityLevels.mild;
+        }
+
         const lowerWord = word.toLowerCase();
         
         // Extreme severity (hate speech, slurs)
@@ -450,10 +545,20 @@ class ContentFilter {
     /**
      * Determine action based on severity and user history
      */
-    determineAction(severity, userId) {
+    determineAction(severity, userId = null) {
         // Get user's violation history (would integrate with database)
-        const violationCount = 0; // Placeholder
-        
+        // For now, we'll use a placeholder - in production this would query the database
+        const violationCount = 0; // TODO: Implement database lookup for user violations
+
+        // Log the determination for debugging
+        if (userId) {
+            logger.debug('Determining action for content violation', {
+                userId,
+                severity,
+                violationCount
+            });
+        }
+
         if (severity >= 4 || violationCount >= 5) {
             return 'ban';
         } else if (severity >= 3 || violationCount >= 3) {
@@ -463,7 +568,7 @@ class ContentFilter {
         } else if (severity >= 1 || violationCount >= 1) {
             return 'warn';
         }
-        
+
         return 'delete';
     }
     

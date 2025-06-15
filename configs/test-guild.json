@@ -155,27 +155,6 @@
       "trackDuration": 30000
     }
   },
-  "profanity": {
-    "enabled": true,
-    "severity": "medium",
-    "customWords": [],
-    "whitelist": [],
-    "languages": [
-      "en",
-      "es",
-      "fr",
-      "de",
-      "it",
-      "pt",
-      "ru"
-    ],
-    "actions": {
-      "delete": true,
-      "warn": true,
-      "timeout": false,
-      "kick": false
-    }
-  },
   "raidProtection": {
     "enabled": true,
     "joinThreshold": 5,
@@ -283,6 +262,27 @@
       "interval": 86400000,
       "location": "./backups/",
       "maxBackups": 7
+    }
+  },
+  "profanity": {
+    "enabled": true,
+    "severity": "medium",
+    "customWords": [],
+    "whitelist": [],
+    "languages": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "ru"
+    ],
+    "actions": {
+      "delete": true,
+      "warn": true,
+      "timeout": false,
+      "kick": false
     }
   }
 }

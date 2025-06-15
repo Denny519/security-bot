@@ -68,8 +68,10 @@ class Logger {
         // Ensure log directory exists
         this.ensureLogDirectory();
 
-        // Start buffer flushing
-        this.startBufferFlushing();
+        // Start buffer flushing (only if file logging is enabled)
+        if (this.enableFile) {
+            this.startBufferFlushing();
+        }
     }
     
     /**
@@ -367,21 +369,7 @@ class Logger {
         this.debug(`User activity: ${activity} by ${user.tag}`, meta);
     }
     
-    /**
-     * Log performance metrics
-     * @param {string} metric - Metric name
-     * @param {number} value - Metric value
-     * @param {string} unit - Metric unit
-     */
-    logMetric(metric, value, unit = '') {
-        const meta = {
-            metric,
-            value,
-            unit
-        };
-        
-        this.debug(`Performance metric: ${metric} = ${value}${unit}`, meta);
-    }
+
     
     /**
      * Start buffer flushing interval

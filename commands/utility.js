@@ -83,7 +83,7 @@ const statusCommand = {
 
                 { name: '🛡️ Security Status', value: '\u200b', inline: false },
                 { name: 'Commands Available', value: client.commandHandler ? client.commandHandler.getAllCommands().size.toString() : 'Unknown', inline: true },
-                { name: 'Bot Version', value: '2.1.0', inline: true },
+                { name: 'Bot Version', value: '2.2.0', inline: true },
                 { name: 'Status', value: '🟢 Operational', inline: true }
             ]
         );
