@@ -1,0 +1,288 @@
+{
+  "bot": {
+    "name": "Security Bot",
+    "version": "2.0.0",
+    "description": "Advanced Discord Security and Moderation Bot",
+    "author": "Security Bot Team",
+    "prefix": "!"
+  },
+  "moderation": {
+    "logChannel": null,
+    "kickReason": "Automated moderation action",
+    "banReason": "Automated moderation action",
+    "warnBeforeKick": true,
+    "maxWarnings": 3,
+    "autoModeration": true,
+    "autoMod": {
+      "enabled": true,
+      "deleteMessages": true,
+      "notifyChannel": true,
+      "notifyUser": true
+    },
+    "escalation": {
+      "enabled": true,
+      "steps": [
+        {
+          "action": "warn",
+          "threshold": 1
+        },
+        {
+          "action": "timeout",
+          "threshold": 2,
+          "duration": 300000
+        },
+        {
+          "action": "timeout",
+          "threshold": 3,
+          "duration": 3600000
+        },
+        {
+          "action": "kick",
+          "threshold": 4
+        },
+        {
+          "action": "ban",
+          "threshold": 5
+        }
+      ]
+    }
+  },
+  "contentFilter": {
+    "enabled": true,
+    "strictMode": false,
+    "customWords": [],
+    "whitelist": [],
+    "allowedFileTypes": [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "webp",
+      "bmp",
+      "svg",
+      "mp4",
+      "mov",
+      "avi",
+      "mkv",
+      "webm",
+      "mp3",
+      "wav",
+      "ogg",
+      "pdf",
+      "txt",
+      "doc",
+      "docx",
+      "xls",
+      "xlsx",
+      "ppt",
+      "pptx",
+      "zip",
+      "rar",
+      "7z",
+      "tar",
+      "gz"
+    ],
+    "maxFileSize": 52428800,
+    "languages": {
+      "english": true,
+      "spanish": true,
+      "french": true,
+      "german": true,
+      "portuguese": true
+    },
+    "actions": {
+      "mild": "warn",
+      "moderate": "delete",
+      "strong": "timeout",
+      "extreme": "ban"
+    }
+  },
+  "spam": {
+    "enabled": true,
+    "maxDuplicateMessages": 1,
+    "timeWindow": 60000,
+    "cooldown": 10000,
+    "maxMessagesPerMinute": 10,
+    "advanced": {
+      "enabled": true,
+      "similarityThreshold": 0.8,
+      "checkEmojis": true,
+      "checkRepeatedChars": true,
+      "maxRepeatedChars": 5
+    }
+  },
+  "links": {
+    "enabled": true,
+    "allowWhitelist": true,
+    "whitelist": [
+      "discord.gg",
+      "discord.com",
+      "github.com",
+      "youtube.com",
+      "youtu.be",
+      "tenor.com",
+      "giphy.com",
+      "imgur.com",
+      "reddit.com",
+      "twitter.com",
+      "x.com",
+      "twitch.tv"
+    ],
+    "advanced": {
+      "enabled": true,
+      "checkShorteners": true,
+      "checkSuspiciousDomains": true,
+      "checkIPAddresses": true,
+      "allowedFileTypes": [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".mp4",
+        ".webm"
+      ]
+    }
+  },
+  "mentions": {
+    "enabled": true,
+    "maxMentions": 3,
+    "excludeBotMentions": true,
+    "excludeRoleMentions": false,
+    "maxRoleMentions": 1,
+    "ghostPing": {
+      "enabled": true,
+      "trackDuration": 30000
+    }
+  },
+  "profanity": {
+    "enabled": true,
+    "severity": "medium",
+    "customWords": [],
+    "whitelist": [],
+    "languages": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "it",
+      "pt",
+      "ru"
+    ],
+    "actions": {
+      "delete": true,
+      "warn": true,
+      "timeout": false,
+      "kick": false
+    }
+  },
+  "raidProtection": {
+    "enabled": true,
+    "joinThreshold": 5,
+    "timeWindow": 60000,
+    "actions": {
+      "lockdown": true,
+      "kickNewMembers": true,
+      "requireVerification": true,
+      "notifyModerators": true
+    },
+    "accountAge": {
+      "enabled": true,
+      "minimumAge": 600000,
+      "action": "kick"
+    }
+  },
+  "attachments": {
+    "enabled": true,
+    "maxSize": 8388608,
+    "allowedTypes": [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "video/mp4",
+      "video/webm",
+      "text/plain"
+    ],
+    "nsfwDetection": {
+      "enabled": false,
+      "apiKey": null,
+      "threshold": 0.7
+    }
+  },
+  "logging": {
+    "enabled": true,
+    "channels": {
+      "moderation": null,
+      "joins": null,
+      "messages": null,
+      "voice": null,
+      "errors": null
+    },
+    "events": {
+      "messageDelete": true,
+      "messageEdit": true,
+      "memberJoin": true,
+      "memberLeave": true,
+      "memberBan": true,
+      "memberUnban": true,
+      "memberKick": true,
+      "memberTimeout": true,
+      "roleCreate": true,
+      "roleDelete": true,
+      "roleUpdate": true,
+      "channelCreate": true,
+      "channelDelete": true,
+      "channelUpdate": true,
+      "voiceStateUpdate": true
+    }
+  },
+  "performance": {
+    "cacheCleanupInterval": 300000,
+    "maxCacheSize": 1000,
+    "rateLimitBuffer": 100,
+    "database": {
+      "enabled": false,
+      "type": "sqlite",
+      "path": "./data/security-bot.db",
+      "host": null,
+      "port": null,
+      "username": null,
+      "password": null,
+      "database": null
+    }
+  },
+  "features": {
+    "autoRole": false,
+    "welcomeMessages": false,
+    "ticketSystem": false,
+    "reactionRoles": false,
+    "customCommands": false,
+    "musicBot": false,
+    "economySystem": false
+  },
+  "security": {
+    "validatePermissions": true,
+    "requiredPermissions": [
+      "ViewChannel",
+      "SendMessages",
+      "ManageMessages",
+      "KickMembers",
+      "BanMembers",
+      "ModerateMembers",
+      "ManageRoles",
+      "ViewAuditLog"
+    ],
+    "rateLimiting": {
+      "enabled": true,
+      "commandsPerMinute": 30,
+      "actionsPerMinute": 10
+    },
+    "backup": {
+      "enabled": false,
+      "interval": 86400000,
+      "location": "./backups/",
+      "maxBackups": 7
+    }
+  }
+}
